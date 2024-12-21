@@ -1,7 +1,18 @@
 <body>
-  <style> 
-    body { 
+  <style>
+    body {
       margin: 0;
+      height: 100vh; /* Занимает всю высоту экрана */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #000; /* Фон страницы */
+    }
+  
+    #game-container {
+      position: relative;
+      width: 1000px;  /* Ширина канваса Phaser */
+      height: 600px;  /* Высота канваса Phaser */
     }
     #gameOver {
       display: none;
@@ -29,14 +40,30 @@
   </style>
   <div id="gameOver">Game Over! Refresh the page to play again.</div>
   <div id="score">Score: 0</div>
+  <button id="restartButton" style="
+      display: none;
+      position: absolute;
+      top: 60%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20px;
+      padding: 10px 20px;
+      color: white;
+      background-color: #007BFF;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;">
+      Restart
+  </button>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <script>
     let player;
     let cursors;
     let score = 0;
     const maxFishCount = 15;
-    const predatorRatio = 0.2;
-    const maxPlayerSize = 2; // Уменьшен максимальный размер игрока на 25%
+    const maxPredators = 4; // Максимальное количество хищников
+    const predatorRatio = 0.5;
+    const maxPlayerSize = 2;
     let predatorsCanSpawn = false;
     const winScore = 1000;
 
@@ -52,13 +79,14 @@
       }
 
       create() {
-        let background = this.add.image(500, 300, 'ocean'); // Увеличение размера фона
+        let background = this.add.image(500, 300, 'ocean');
 
-        player = this.physics.add.sprite(100, 450, 'player');
+        player = this.physics.add.sprite(500, 300, 'player');
         player.body.setAllowGravity(false);
         player.setCollideWorldBounds(true);
         player.setFlipX(false);
-        player.setScale(0.525); // Уменьшен начальный размер игрока на 25%
+        player.setScale(0.525);
+        player.body.setSize(player.width * 0.8, player.height * 0.8); // Хитбокс игрока
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -68,64 +96,68 @@
         });
 
         this.time.addEvent({
-          delay: 1500,
+          delay: 2000,
           callback: this.spawnFish,
           callbackScope: this,
           loop: true
         });
 
         this.time.addEvent({
-          delay: 12000,
+          delay: 7000,
           callback: () => predatorsCanSpawn = true
         });
 
         this.physics.add.overlap(player, this.npcFishes, this.eatFish, null, this);
         this.physics.add.collider(player, this.predators, this.checkPredatorCollision, null, this);
         this.physics.add.collider(this.predators, this.predators);
+        document.getElementById('restartButton').style.display = 'none';
       }
 
       spawnFish() {
-        const totalFishes = this.npcFishes.countActive(true) + this.predators.countActive(true);
-        if (totalFishes >= maxFishCount) return;
+    const totalFishes = this.npcFishes.countActive(true) + this.predators.countActive(true);
+    if (totalFishes >= maxFishCount) return;
 
-        const isPredator = predatorsCanSpawn && Math.random() < predatorRatio;
-        let x, y;
+    const isPredator = predatorsCanSpawn && Math.random() < predatorRatio;
+    let x, y;
 
-        if (isPredator) {
-          const edge = Phaser.Math.Between(0, 3);
-          if (edge === 0) {
-            x = 0;
-            y = Phaser.Math.Between(0, this.cameras.main.height);
-          } else if (edge === 1) {
-            x = this.cameras.main.width;
-            y = Phaser.Math.Between(0, this.cameras.main.height);
-          } else if (edge === 2) {
+    if (isPredator && this.predators.countActive(true) < maxPredators) {
+        const spawnSide = Phaser.Math.Between(0, 2); // 0 - снизу, 1 - слева, 2 - справа
+
+        if (spawnSide === 0) { // Спавн снизу
             x = Phaser.Math.Between(0, this.cameras.main.width);
-            y = 0;
-          } else {
-            x = Phaser.Math.Between(0, this.cameras.main.width);
-            y = this.cameras.main.height;
-          }
-
-          const size = Phaser.Math.FloatBetween(player.scale + 0.1, Math.min(player.scale + 0.5, maxPlayerSize));
-          let predator = this.predators.create(x, y, 'predator');
-          predator.setScale(size);
-          predator.predatorSize = size;
-          predator.setFlipX(Math.random() < 0.5);
-
-          predator.isSmaller = size < player.scale;
-        } else {
-          x = Phaser.Math.Between(50, this.cameras.main.width - 50);
-          y = Phaser.Math.Between(50, this.cameras.main.height - 50);
-
-          const size = Phaser.Math.FloatBetween(0.3, Math.min(player.scale + 0.2, 1.5));
-          let fish = this.npcFishes.create(x, y, 'fish');
-          fish.setScale(size);
-          fish.fishSize = size;
-          fish.setFlipX(Math.random() < 0.5);
-          this.randomizeMovement(fish);
+            y = this.cameras.main.height - 10;
+        } else if (spawnSide === 1) { // Спавн слева
+            x = -10;
+            y = Phaser.Math.Between(0, this.cameras.main.height);
+        } else { // Спавн справа
+            x = this.cameras.main.width + 10;
+            y = Phaser.Math.Between(0, this.cameras.main.height);
         }
-      }
+
+        const maxPredatorSize = maxPlayerSize * 0.9; // Максимальный размер хищника
+        const minPredatorSize = Math.min(player.scale + 0.2, maxPredatorSize); // Минимальный размер хищника
+        const predatorSize = Phaser.Math.FloatBetween(minPredatorSize, maxPredatorSize); // Размер хищника
+
+        let predator = this.predators.create(x, y, 'predator');
+        predator.setScale(predatorSize);
+        predator.predatorSize = predatorSize;
+        predator.setFlipX(Math.random() < 0.5);
+        predator.body.setSize(predator.width * 0.8, predator.height * 0.8); // Хитбокс хищника
+
+        predator.isSmaller = predatorSize < player.scale;
+    } else {
+        x = Phaser.Math.Between(50, this.cameras.main.width - 50);
+        y = Phaser.Math.Between(50, this.cameras.main.height - 50);
+
+        const size = Phaser.Math.FloatBetween(0.3, Math.min(player.scale + 0.2, 1.5));
+        let fish = this.npcFishes.create(x, y, 'fish');
+        fish.setScale(size);
+        fish.fishSize = size;
+        fish.setFlipX(Math.random() < 0.5);
+        fish.body.setSize(fish.width * 0.8, fish.height * 0.8); // Хитбокс рыбы
+        this.randomizeMovement(fish);
+    }
+}
 
       randomizeMovement(fish) {
         let speedX = Phaser.Math.Between(-100, 100);
@@ -170,11 +202,20 @@
       endGame(won) {
         this.physics.pause();
         document.getElementById('gameOver').style.display = 'block';
-        document.getElementById('gameOver').innerText = won ? 'You Win! Refresh the page to play again.' : 'Game Over! Refresh the page to play again.';
-      }
+        document.getElementById('gameOver').innerText = won ? 'You Win! Click Restart to play again.' : 'Game Over! Click Restart to try again.';
+          
+        const restartButton = document.getElementById('restartButton');
+        restartButton.style.display = 'block'; // Показываем кнопку рестарта
+        restartButton.onclick = () => {
+            document.getElementById('gameOver').style.display = 'none'; // Скрыть текст Game Over
+            restartButton.style.display = 'none'; // Скрыть кнопку рестарта
+            this.scene.restart(); // Перезапуск текущей сцены
+        };
+    }
+
 
       update() {
-        const speed = 250;
+        const speed = 200;
         player.setVelocity(0);
 
         if (cursors.left.isDown) {
@@ -212,7 +253,7 @@
             }
           } else {
             if (distance > 10) {
-              predator.setVelocity((dx / distance) * 80, (dy / distance) * 80);
+              predator.setVelocity((dx / distance) * 100, (dy / distance) * 100);
               predator.setFlipX(dx < 0);
             }  else {
               predator.setVelocity(0);
