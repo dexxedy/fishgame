@@ -1,0 +1,240 @@
+<body>
+  <style> 
+    body { 
+      margin: 0;
+    }
+    #gameOver {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+  <div id="gameOver">Game Over! Refresh the page to play again.</div>
+  <div id="score">Score: 0</div>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+  <script>
+    let player;
+    let cursors;
+    let score = 0;
+    const maxFishCount = 15;
+    const predatorRatio = 0.2;
+    const maxPlayerSize = 2; // Уменьшен максимальный размер игрока на 25%
+    let predatorsCanSpawn = false;
+    const winScore = 1000;
+
+    class GameScene extends Phaser.Scene {
+      preload() {
+        this.load.image('ocean', 'myassets/ocean_big.png');
+        this.load.image('fish', 'myassets/small_fish.png');
+        this.load.image('predator', 'myassets/predator.png');
+        this.load.spritesheet('player', 'myassets/player_fish.png', {
+          frameWidth: 32,
+          frameHeight: 48
+        });
+      }
+
+      create() {
+        let background = this.add.image(500, 300, 'ocean'); // Увеличение размера фона
+
+        player = this.physics.add.sprite(100, 450, 'player');
+        player.body.setAllowGravity(false);
+        player.setCollideWorldBounds(true);
+        player.setFlipX(false);
+        player.setScale(0.525); // Уменьшен начальный размер игрока на 25%
+
+        cursors = this.input.keyboard.createCursorKeys();
+
+        this.npcFishes = this.physics.add.group();
+        this.predators = this.physics.add.group({
+          collideWorldBounds: true
+        });
+
+        this.time.addEvent({
+          delay: 1500,
+          callback: this.spawnFish,
+          callbackScope: this,
+          loop: true
+        });
+
+        this.time.addEvent({
+          delay: 12000,
+          callback: () => predatorsCanSpawn = true
+        });
+
+        this.physics.add.overlap(player, this.npcFishes, this.eatFish, null, this);
+        this.physics.add.collider(player, this.predators, this.checkPredatorCollision, null, this);
+        this.physics.add.collider(this.predators, this.predators);
+      }
+
+      spawnFish() {
+        const totalFishes = this.npcFishes.countActive(true) + this.predators.countActive(true);
+        if (totalFishes >= maxFishCount) return;
+
+        const isPredator = predatorsCanSpawn && Math.random() < predatorRatio;
+        let x, y;
+
+        if (isPredator) {
+          const edge = Phaser.Math.Between(0, 3);
+          if (edge === 0) {
+            x = 0;
+            y = Phaser.Math.Between(0, this.cameras.main.height);
+          } else if (edge === 1) {
+            x = this.cameras.main.width;
+            y = Phaser.Math.Between(0, this.cameras.main.height);
+          } else if (edge === 2) {
+            x = Phaser.Math.Between(0, this.cameras.main.width);
+            y = 0;
+          } else {
+            x = Phaser.Math.Between(0, this.cameras.main.width);
+            y = this.cameras.main.height;
+          }
+
+          const size = Phaser.Math.FloatBetween(player.scale + 0.1, Math.min(player.scale + 0.5, maxPlayerSize));
+          let predator = this.predators.create(x, y, 'predator');
+          predator.setScale(size);
+          predator.predatorSize = size;
+          predator.setFlipX(Math.random() < 0.5);
+
+          predator.isSmaller = size < player.scale;
+        } else {
+          x = Phaser.Math.Between(50, this.cameras.main.width - 50);
+          y = Phaser.Math.Between(50, this.cameras.main.height - 50);
+
+          const size = Phaser.Math.FloatBetween(0.3, Math.min(player.scale + 0.2, 1.5));
+          let fish = this.npcFishes.create(x, y, 'fish');
+          fish.setScale(size);
+          fish.fishSize = size;
+          fish.setFlipX(Math.random() < 0.5);
+          this.randomizeMovement(fish);
+        }
+      }
+
+      randomizeMovement(fish) {
+        let speedX = Phaser.Math.Between(-100, 100);
+        let speedY = Phaser.Math.Between(-100, 100);
+
+        fish.speedX = speedX;
+        fish.speedY = speedY;
+
+        this.time.addEvent({
+          delay: Phaser.Math.Between(2000, 4000),
+          callback: () => this.randomizeMovement(fish),
+          loop: false
+        });
+      }
+
+      eatFish(player, fish) {
+        if (player.scale > fish.fishSize) {
+          fish.destroy();
+          score += 10;
+          this.updateScore();
+          player.setScale(Math.min(player.scale + 0.075, maxPlayerSize));
+        }
+      }
+
+      checkPredatorCollision(player, predator) {
+        if (predator.predatorSize > player.scale) {
+          this.endGame(false);
+        } else if (predator.predatorSize < player.scale) {
+          predator.destroy();
+          score += 50;
+          this.updateScore();
+        }
+      }
+
+      updateScore() {
+        document.getElementById('score').innerText = `Score: ${score}`;
+        if (score >= winScore) {
+          this.endGame(true);
+        }
+      }
+
+      endGame(won) {
+        this.physics.pause();
+        document.getElementById('gameOver').style.display = 'block';
+        document.getElementById('gameOver').innerText = won ? 'You Win! Refresh the page to play again.' : 'Game Over! Refresh the page to play again.';
+      }
+
+      update() {
+        const speed = 250;
+        player.setVelocity(0);
+
+        if (cursors.left.isDown) {
+          player.setVelocityX(-speed);
+          player.setFlipX(true);
+        }
+        if (cursors.right.isDown) {
+          player.setVelocityX(speed);
+          player.setFlipX(false);
+        }
+        if (cursors.up.isDown) player.setVelocityY(-speed);
+        if (cursors.down.isDown) player.setVelocityY(speed);
+
+        this.npcFishes.getChildren().forEach(fish => {
+          fish.x += fish.speedX * 0.016;
+          fish.y += fish.speedY * 0.016;
+
+          if (fish.x < 0 || fish.x > this.cameras.main.width) fish.speedX *= -1;
+          if (fish.y < 0 || fish.y > this.cameras.main.height) fish.speedY *= -1;
+
+          fish.setFlipX(fish.speedX < 0);
+        });
+
+        this.predators.getChildren().forEach(predator => {
+          const dx = player.x - predator.x;
+          const dy = player.y - predator.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (predator.predatorSize < player.scale) {
+            if (distance > 10) {
+              predator.setVelocity((-dx / distance) * 80, (-dy / distance) * 80);
+              predator.setFlipX(dx > 0);
+            } else {
+              predator.setVelocity(0);
+            }
+          } else {
+            if (distance > 10) {
+              predator.setVelocity((dx / distance) * 80, (dy / distance) * 80);
+              predator.setFlipX(dx < 0);
+            }  else {
+              predator.setVelocity(0);
+            }
+          }
+        });
+      }
+    }
+
+    let config = {
+      type: Phaser.AUTO,
+      width: 1000,
+      height: 600,
+      scene: new GameScene(),
+      physics: {
+        default: 'arcade',
+        arcade: {
+          gravity: { y: 0 },
+          debug: false
+        }
+      }
+    };
+    let game = new Phaser.Game(config);
+  </script>
+</body>
