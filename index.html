@@ -7,17 +7,17 @@
   <style>
     body {
       margin: 0;
-      height: 100vh; /* Занимает всю высоту экрана */
+      height: 100vh; 
       display: flex;
       justify-content: center;
       align-items: center;
-      background-color: #000; /* Фон страницы */
+      background-color: #000; 
     }
   
     #game-container {
       position: relative;
-      width: 1000px;  /* Ширина канваса Phaser */
-      height: 600px;  /* Высота канваса Phaser */
+      width: 1000px; 
+      height: 600px;  
     }
     #gameOver {
       display: none;
@@ -66,7 +66,7 @@
     let cursors;
     let score = 0;
     const maxFishCount = 15;
-    const maxPredators = 4; // Максимальное количество хищников
+    const maxPredators = 4; 
     const predatorRatio = 0.5;
     const maxPlayerSize = 2;
     let predatorsCanSpawn = false;
@@ -91,7 +91,7 @@
         player.setCollideWorldBounds(true);
         player.setFlipX(false);
         player.setScale(0.525);
-        player.body.setSize(player.width * 0.8, player.height * 0.8); // Хитбокс игрока
+        player.body.setSize(player.width * 0.8, player.height * 0.8); 
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -126,28 +126,28 @@
     let x, y;
 
     if (isPredator && this.predators.countActive(true) < maxPredators) {
-        const spawnSide = Phaser.Math.Between(0, 2); // 0 - снизу, 1 - слева, 2 - справа
+        const spawnSide = Phaser.Math.Between(0, 2); 
 
-        if (spawnSide === 0) { // Спавн снизу
+        if (spawnSide === 0) { 
             x = Phaser.Math.Between(0, this.cameras.main.width);
             y = this.cameras.main.height - 10;
-        } else if (spawnSide === 1) { // Спавн слева
+        } else if (spawnSide === 1) { 
             x = -10;
             y = Phaser.Math.Between(0, this.cameras.main.height);
-        } else { // Спавн справа
+        } else { 
             x = this.cameras.main.width + 10;
             y = Phaser.Math.Between(0, this.cameras.main.height);
         }
 
-        const maxPredatorSize = maxPlayerSize * 0.9; // Максимальный размер хищника
-        const minPredatorSize = Math.min(player.scale + 0.2, maxPredatorSize); // Минимальный размер хищника
-        const predatorSize = Phaser.Math.FloatBetween(minPredatorSize, maxPredatorSize); // Размер хищника
+        const maxPredatorSize = maxPlayerSize * 0.9; 
+        const minPredatorSize = Math.min(player.scale + 0.2, maxPredatorSize); 
+        const predatorSize = Phaser.Math.FloatBetween(minPredatorSize, maxPredatorSize); 
 
         let predator = this.predators.create(x, y, 'predator');
         predator.setScale(predatorSize);
         predator.predatorSize = predatorSize;
         predator.setFlipX(Math.random() < 0.5);
-        predator.body.setSize(predator.width * 0.8, predator.height * 0.8); // Хитбокс хищника
+        predator.body.setSize(predator.width * 0.8, predator.height * 0.8); 
 
         predator.isSmaller = predatorSize < player.scale;
     } else {
@@ -159,7 +159,7 @@
         fish.setScale(size);
         fish.fishSize = size;
         fish.setFlipX(Math.random() < 0.5);
-        fish.body.setSize(fish.width * 0.8, fish.height * 0.8); // Хитбокс рыбы
+        fish.body.setSize(fish.width * 0.8, fish.height * 0.8); 
         this.randomizeMovement(fish);
     }
 }
@@ -210,11 +210,11 @@
         document.getElementById('gameOver').innerText = won ? 'You Win! Click Restart to play again.' : 'Game Over! Click Restart to try again.';
           
         const restartButton = document.getElementById('restartButton');
-        restartButton.style.display = 'block'; // Показываем кнопку рестарта
+        restartButton.style.display = 'block'; 
         restartButton.onclick = () => {
-            document.getElementById('gameOver').style.display = 'none'; // Скрыть текст Game Over
-            restartButton.style.display = 'none'; // Скрыть кнопку рестарта
-            this.scene.restart(); // Перезапуск текущей сцены
+            document.getElementById('gameOver').style.display = 'none'; 
+            restartButton.style.display = 'none'; 
+            this.scene.restart(); 
         };
     }
 
